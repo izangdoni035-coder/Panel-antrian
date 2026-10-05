@@ -1,0 +1,1072 @@
+<!DOCTYPE html>
+<html lang="id" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Studio Print & Sistem Antrian</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#f0f9ff',
+                            100: '#e0f2fe',
+                            500: '#0284c7',
+                            600: '#0369a1',
+                            700: '#075985',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Font Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            user-select: none;
+        }
+
+        /* Paper Canvas Shadow */
+        .paper-shadow {
+            box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.25), 0 0 15px rgba(0,0,0,0.1);
+        }
+
+        /* Grid Pattern Background for Studio Canvas */
+        .canvas-grid-bg {
+            background-color: #0f172a;
+            background-image: radial-gradient(#334155 1px, transparent 1px);
+            background-size: 16px 16px;
+        }
+        .light .canvas-grid-bg {
+            background-color: #cbd5e1;
+            background-image: radial-gradient(#94a3b8 1px, transparent 1px);
+        }
+
+        /* Custom Drag Handle Style */
+        .draggable-active {
+            cursor: move !important;
+            outline: 2px dashed #0284c7;
+        }
+
+        /* Toast Animation */
+        @keyframes slideIn {
+            from { transform: translateY(100%); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        .toast-animate {
+            animation: slideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        /* Print Media Styles */
+        @media print {
+            body * {
+                visibility: hidden !important;
+            }
+            #print-area, #print-area * {
+                visibility: visible !important;
+            }
+            #print-area {
+                position: absolute !important;
+                left: 0 !important;
+                top: 0 !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                box-shadow: none !important;
+                border: none !important;
+                background: white !important;
+            }
+            .no-print {
+                display: none !important;
+            }
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #64748b;
+            border-radius: 99px;
+        }
+    </style>
+</head>
+<body class="bg-slate-100 dark:bg-slate-900 text-slate-800 dark:text-slate-100 min-h-screen flex flex-col transition-colors duration-300">
+
+    <!-- Top Navigation Bar -->
+    <header class="sticky top-0 z-40 bg-white/80 dark:bg-slate-800/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-700 px-4 lg:px-8 py-3 transition-colors no-print">
+        <div class="max-w-7xl mx-auto flex justify-between items-center">
+            
+            <!-- Logo & Title -->
+            <div class="flex items-center gap-3 cursor-pointer" onclick="switchView('customer')">
+                <div class="bg-gradient-to-tr from-blue-600 to-cyan-500 text-white p-2.5 rounded-2xl shadow-lg shadow-blue-500/30 flex items-center justify-center">
+                    <i class="fa-solid fa-print text-xl"></i>
+                </div>
+                <div>
+                    <h1 class="font-bold text-lg leading-tight flex items-center gap-2">
+                        PrintStudio <span class="text-[10px] font-extrabold uppercase tracking-wider bg-blue-100 dark:bg-blue-900/60 text-blue-600 dark:text-blue-300 px-2 py-0.5 rounded-full border border-blue-200 dark:border-blue-700">Pro</span>
+                    </h1>
+                    <p class="text-xs text-slate-500 dark:text-slate-400">Sistem Antrian & Studio Cetak Presisi</p>
+                </div>
+            </div>
+
+            <!-- Header Actions -->
+            <div class="flex items-center gap-2 sm:gap-3">
+                <!-- Navigation Switcher Buttons -->
+                <div class="bg-slate-200 dark:bg-slate-700/60 p-1 rounded-xl flex items-center text-xs font-medium">
+                    <button id="nav-btn-customer" onclick="switchView('customer')" class="px-3 py-1.5 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-sm transition">
+                        <i class="fa-solid fa-user-pen mr-1.5"></i>Layar Pelanggan
+                    </button>
+                    <button id="nav-btn-admin" onclick="switchView('admin')" class="px-3 py-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition">
+                        <i class="fa-solid fa-user-shield mr-1.5"></i>Panel Admin
+                    </button>
+                </div>
+
+                <!-- Theme Toggle Button -->
+                <button id="theme-toggle" onclick="toggleTheme()" class="px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700 text-amber-500 dark:text-amber-400 font-semibold text-xs flex items-center gap-1.5 transition">
+                    <span id="theme-icon"><i class="fa-solid fa-sun"></i> Siang</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- MAIN CONTENT CONTAINERS -->
+    <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 flex flex-col">
+
+        <!-- SCREEN 1: LAYAR PELANGGAN / INPUT ANTRIAN -->
+        <section id="customer-view" class="space-y-6 my-auto">
+            <div class="max-w-xl mx-auto bg-white dark:bg-slate-800/90 p-6 sm:p-8 rounded-3xl shadow-xl border border-slate-200 dark:border-slate-700/80 backdrop-blur-sm transition-all">
+                <div class="text-center mb-6">
+                    <div class="w-12 h-12 bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400 rounded-2xl flex items-center justify-center mx-auto mb-3 shadow-inner">
+                        <i class="fa-solid fa-ticket text-xl"></i>
+                    </div>
+                    <h2 class="text-2xl font-extrabold text-slate-900 dark:text-white">Ambil Antrian Cetak</h2>
+                    <p class="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">Lengkapi formulir di bawah untuk memasukkan berkas Anda ke sistem cetak.</p>
+                </div>
+
+                <form id="queue-form" onsubmit="handleQueueSubmit(event)" class="space-y-5">
+                    <!-- Nama Pelanggan -->
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider mb-1.5">Nama Pelanggan <span class="text-red-500">*</span></label>
+                        <div class="relative">
+                            <i class="fa-solid fa-user absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
+                            <input type="text" id="cust-name" required placeholder="Contoh: Ahmad Wijaya" class="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition text-sm">
+                        </div>
+                    </div>
+
+                    <!-- Nomor Order -->
+                    <div>
+                        <div class="flex justify-between items-center mb-1.5">
+                            <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider">Nomor Order</label>
+                            <button type="button" onclick="generateOrderNo()" class="text-xs text-blue-600 dark:text-blue-400 hover:underline font-semibold flex items-center gap-1">
+                                <i class="fa-solid fa-arrows-rotate text-[10px]"></i> Auto-Generate
+                            </button>
+                        </div>
+                        <div class="relative">
+                            <i class="fa-solid fa-hashtag absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
+                            <input type="text" id="cust-order" placeholder="Nomor order manual/otomatis" class="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition text-sm font-mono">
+                        </div>
+                    </div>
+
+                    <!-- Upload Dokumen / Gambar -->
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider mb-1.5">Upload Dokumen / Gambar <span class="text-red-500">*</span></label>
+                        <div class="border-2 border-dashed border-slate-300 dark:border-slate-700 hover:border-blue-500 dark:hover:border-blue-500 rounded-2xl p-6 text-center cursor-pointer bg-slate-50 dark:bg-slate-900/40 transition relative group" id="drop-zone">
+                            <input type="file" id="cust-file" required accept="image/*,.pdf" onchange="handleFileSelect(event)" class="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10">
+                            
+                            <div id="upload-placeholder" class="space-y-2">
+                                <div class="w-12 h-12 bg-slate-200 dark:bg-slate-800 text-slate-500 dark:text-slate-400 rounded-2xl flex items-center justify-center mx-auto group-hover:scale-110 transition-transform">
+                                    <i class="fa-solid fa-cloud-arrow-up text-2xl"></i>
+                                </div>
+                                <p class="text-sm font-semibold">Klik atau seret berkas ke sini</p>
+                                <p class="text-xs text-slate-400">Mendukung Format Gambar (JPG, PNG) & PDF</p>
+                            </div>
+
+                            <!-- Preview Box -->
+                            <div id="file-preview-container" class="hidden flex flex-col items-center gap-2">
+                                <img id="img-preview" class="max-h-40 rounded-xl shadow-md border border-slate-200 dark:border-slate-700 object-contain hidden">
+                                <div id="pdf-preview" class="hidden flex items-center gap-3 p-3 bg-blue-50 dark:bg-blue-950/60 rounded-xl text-blue-600 dark:text-blue-300 font-medium border border-blue-200 dark:border-blue-800">
+                                    <i class="fa-solid fa-file-pdf text-2xl text-red-500"></i>
+                                    <span id="pdf-name" class="text-xs font-mono truncate max-w-xs">document.pdf</span>
+                                </div>
+                                <span class="text-xs text-blue-500 underline mt-1 font-medium">Klik untuk mengganti berkas</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Submit Button -->
+                    <button type="submit" class="w-full bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white font-bold py-3.5 rounded-xl shadow-lg shadow-blue-500/25 transition active:scale-[0.99] flex items-center justify-center gap-2 text-sm">
+                        <i class="fa-solid fa-paper-plane"></i> Kirim Antrian Cetak
+                    </button>
+                </form>
+            </div>
+        </section>
+
+        <!-- SCREEN 2: PANEL ADMIN (PROTECTED) -->
+        <section id="admin-view" class="hidden space-y-6 flex-1 flex flex-col">
+            
+            <!-- Navigation Tabs in Admin -->
+            <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 dark:border-slate-700 pb-3">
+                <div class="flex flex-wrap gap-2">
+                    <button onclick="switchAdminTab('queue')" id="tab-btn-queue" class="admin-tab-btn px-4 py-2 rounded-xl text-xs font-bold bg-blue-600 text-white flex items-center gap-2 transition shadow-md shadow-blue-500/20">
+                        <i class="fa-solid fa-list-check"></i> Antrian Aktif
+                        <span id="queue-badge" class="ml-1 px-2 py-0.5 text-[10px] bg-white/20 rounded-full font-mono">0</span>
+                    </button>
+                    <button onclick="switchAdminTab('history')" id="tab-btn-history" class="admin-tab-btn px-4 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 flex items-center gap-2 transition">
+                        <i class="fa-solid fa-clock-rotate-left"></i> Riwayat Antrian
+                    </button>
+                    <button onclick="switchAdminTab('studio')" id="tab-btn-studio" class="admin-tab-btn px-4 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 flex items-center gap-2 transition">
+                        <i class="fa-solid fa-sliders"></i> Studio Print Editor
+                    </button>
+                </div>
+
+                <!-- Admin Status / Logout -->
+                <div class="flex items-center gap-2 text-xs">
+                    <span class="px-2.5 py-1 bg-emerald-100 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 rounded-lg font-medium flex items-center gap-1.5">
+                        <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> Mode Admin Aktif
+                    </span>
+                    <button onclick="logoutAdmin()" class="px-2.5 py-1 border border-slate-300 dark:border-slate-700 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/50 rounded-lg transition text-slate-500">
+                        <i class="fa-solid fa-right-from-bracket"></i> Keluar
+                    </button>
+                </div>
+            </div>
+
+            <!-- TAB A: ANTRIAN AKTIF -->
+            <div id="admin-tab-queue" class="space-y-4">
+                <div class="flex justify-between items-center">
+                    <h3 class="text-lg font-bold flex items-center gap-2">
+                        <i class="fa-solid fa-circle-nodes text-blue-500"></i> Antrian Berjalan
+                    </h3>
+                    <button onclick="clearAllQueue()" class="text-xs text-red-500 hover:text-red-600 font-semibold flex items-center gap-1 hover:underline">
+                        <i class="fa-solid fa-trash-can"></i> Kosongkan Semua Antrian
+                    </button>
+                </div>
+
+                <!-- Queue Grid Cards -->
+                <div id="queue-cards-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <!-- Cards will be dynamically injected here -->
+                </div>
+
+                <div id="empty-queue-msg" class="p-12 text-center bg-white dark:bg-slate-800/50 rounded-3xl border border-dashed border-slate-300 dark:border-slate-700 text-slate-400 space-y-3">
+                    <i class="fa-solid fa-inbox text-4xl opacity-40"></i>
+                    <p class="text-sm font-medium">Belum ada antrian masuk saat ini.</p>
+                </div>
+            </div>
+
+            <!-- TAB B: RIWAYAT ANTRIAN -->
+            <div id="admin-tab-history" class="hidden space-y-5">
+                <!-- Stats Overview Bar -->
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div class="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm flex items-center gap-4">
+                        <div class="w-10 h-10 bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400 rounded-xl flex items-center justify-center font-bold">
+                            <i class="fa-solid fa-clipboard-check text-lg"></i>
+                        </div>
+                        <div>
+                            <p class="text-xs text-slate-400 uppercase font-semibold">Total Selesai</p>
+                            <h4 id="stat-total-completed" class="text-xl font-extrabold font-mono">0</h4>
+                        </div>
+                    </div>
+                    <div class="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm flex items-center gap-4">
+                        <div class="w-10 h-10 bg-emerald-100 dark:bg-emerald-900/50 text-emerald-600 dark:text-emerald-400 rounded-xl flex items-center justify-center font-bold">
+                            <i class="fa-solid fa-calendar-day text-lg"></i>
+                        </div>
+                        <div>
+                            <p class="text-xs text-slate-400 uppercase font-semibold">Selesai Hari Ini</p>
+                            <h4 id="stat-today-completed" class="text-xl font-extrabold font-mono">0</h4>
+                        </div>
+                    </div>
+                    <div class="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm flex items-center gap-4">
+                        <div class="w-10 h-10 bg-amber-100 dark:bg-amber-900/50 text-amber-600 dark:text-amber-400 rounded-xl flex items-center justify-center font-bold">
+                            <i class="fa-solid fa-layer-group text-lg"></i>
+                        </div>
+                        <div>
+                            <p class="text-xs text-slate-400 uppercase font-semibold">Dalam Antrian</p>
+                            <h4 id="stat-pending-queue" class="text-xl font-extrabold font-mono">0</h4>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Search & Actions -->
+                <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-3">
+                    <div class="relative w-full sm:w-72">
+                        <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                        <input type="text" id="history-search" oninput="renderHistory()" placeholder="Cari nama / nomor order..." class="w-full pl-9 pr-4 py-2 text-xs bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <button onclick="clearHistory()" class="text-xs text-red-500 hover:text-red-600 font-semibold flex items-center gap-1.5 hover:underline">
+                        <i class="fa-solid fa-eraser"></i> Bersihkan Riwayat
+                    </button>
+                </div>
+
+                <!-- History Table -->
+                <div class="overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-sm">
+                    <table class="w-full text-left text-xs">
+                        <thead class="bg-slate-50 dark:bg-slate-900/60 border-b border-slate-200 dark:border-slate-700 text-slate-400 uppercase tracking-wider">
+                            <tr>
+                                <th class="p-4">No. Order</th>
+                                <th class="p-4">Nama Pelanggan</th>
+                                <th class="p-4">Waktu Selesai</th>
+                                <th class="p-4">Berkas</th>
+                                <th class="p-4 text-center">Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody id="history-table-body" class="divide-y divide-slate-200 dark:divide-slate-700">
+                            <!-- Injected History Rows -->
+                        </tbody>
+                    </table>
+                    <div id="empty-history-msg" class="p-8 text-center text-slate-400 space-y-2">
+                        <i class="fa-solid fa-history text-3xl opacity-40"></i>
+                        <p class="text-xs">Riwayat antrian masih kosong.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB C: STUDIO PRINT EDITOR -->
+            <div id="admin-tab-studio" class="hidden space-y-6 flex-1 flex flex-col">
+                <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start flex-1">
+                    
+                    <!-- Left Column: Toolset & Controls (4 cols) -->
+                    <div class="lg:col-span-4 bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm space-y-5">
+                        <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 pb-3">
+                            <h3 class="font-bold text-sm flex items-center gap-2">
+                                <i class="fa-solid fa-sliders text-blue-500"></i> Pengaturan Cetak
+                            </h3>
+                            <span class="text-[10px] text-slate-400 font-mono" id="active-file-indicator">Tidak ada berkas</span>
+                        </div>
+
+                        <!-- Preset Papers -->
+                        <div>
+                            <label class="block text-[11px] font-extrabold text-slate-400 uppercase tracking-wider mb-2">Preset Ukuran Kertas</label>
+                            <div class="grid grid-cols-3 gap-1.5">
+                                <button type="button" onclick="setPaperPreset('a4')" class="preset-btn p-2 text-xs font-semibold border rounded-xl dark:border-slate-700 hover:border-blue-500 transition">A4</button>
+                                <button type="button" onclick="setPaperPreset('a5')" class="preset-btn p-2 text-xs font-semibold border rounded-xl dark:border-slate-700 hover:border-blue-500 transition">A5</button>
+                                <button type="button" onclick="setPaperPreset('4r')" class="preset-btn p-2 text-xs font-semibold border rounded-xl dark:border-slate-700 hover:border-blue-500 transition">4R (Foto)</button>
+                                <button type="button" onclick="setPaperPreset('3r')" class="preset-btn p-2 text-xs font-semibold border rounded-xl dark:border-slate-700 hover:border-blue-500 transition">3R (Foto)</button>
+                                <button type="button" onclick="setPaperPreset('struk80')" class="preset-btn p-2 text-xs font-semibold border rounded-xl dark:border-slate-700 hover:border-blue-500 transition">Struk 80mm</button>
+                                <button type="button" onclick="setPaperPreset('struk58')" class="preset-btn p-2 text-xs font-semibold border rounded-xl dark:border-slate-700 hover:border-blue-500 transition">Struk 58mm</button>
+                            </div>
+                        </div>
+
+                        <!-- Manual Dimension (mm) -->
+                        <div>
+                            <label class="block text-[11px] font-extrabold text-slate-400 uppercase tracking-wider mb-2">Dimensi Kertas (mm)</label>
+                            <div class="grid grid-cols-2 gap-3">
+                                <div>
+                                    <span class="text-[10px] text-slate-400">Lebar (W)</span>
+                                    <input type="number" id="paper-w" value="210" oninput="updatePaperSize()" class="w-full p-2 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-xs font-mono">
+                                </div>
+                                <div>
+                                    <span class="text-[10px] text-slate-400">Tinggi (H)</span>
+                                    <input type="number" id="paper-h" value="297" oninput="updatePaperSize()" class="w-full p-2 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-xs font-mono">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Upload File Manual to Studio -->
+                        <div>
+                            <label class="block text-[11px] font-extrabold text-slate-400 uppercase tracking-wider mb-2">Unggah Manual ke Studio</label>
+                            <input type="file" accept="image/*,.pdf" onchange="loadStudioImageFromFile(event)" class="text-xs text-slate-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 dark:file:bg-slate-700 dark:file:text-slate-200">
+                        </div>
+
+                        <!-- Transform & Alignment Controls -->
+                        <div class="space-y-3 pt-2 border-t border-slate-200 dark:border-slate-700">
+                            <label class="block text-[11px] font-extrabold text-slate-400 uppercase tracking-wider">Zoom Level & Rotasi</label>
+                            
+                            <!-- Zoom Slider -->
+                            <div class="space-y-1">
+                                <div class="flex justify-between text-xs font-mono">
+                                    <span>Zoom</span>
+                                    <span id="zoom-value-text">100%</span>
+                                </div>
+                                <input type="range" id="zoom-slider" min="10" max="300" value="100" oninput="handleZoomSlider(this.value)" class="w-full accent-blue-600">
+                            </div>
+
+                            <!-- Rotate & Reset Buttons -->
+                            <div class="flex items-center gap-2 pt-1">
+                                <button onclick="rotateStudioImage()" class="flex-1 p-2 border rounded-xl text-xs font-semibold hover:bg-slate-100 dark:hover:bg-slate-700 border-slate-300 dark:border-slate-700 flex items-center justify-center gap-1.5">
+                                    <i class="fa-solid fa-rotate-right text-blue-500"></i> Putar 90°
+                                </button>
+                                <button onclick="centerImagePosition()" class="p-2 border rounded-xl text-xs font-semibold hover:bg-slate-100 dark:hover:bg-slate-700 border-slate-300 dark:border-slate-700 flex items-center justify-center gap-1.5" title="Posisikan di Tengah">
+                                    <i class="fa-solid fa-crosshairs text-amber-500"></i> Reset Posisi
+                                </button>
+                            </div>
+
+                            <!-- Alignment Modes -->
+                            <div class="grid grid-cols-3 gap-1.5 pt-1">
+                                <button onclick="setImageFit('fit')" class="p-1.5 text-[11px] font-semibold border rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 border-slate-300 dark:border-slate-700">Fit Page</button>
+                                <button onclick="setImageFit('stretch')" class="p-1.5 text-[11px] font-semibold border rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 border-slate-300 dark:border-slate-700">Stretch</button>
+                                <button onclick="setImageFit('original')" class="p-1.5 text-[11px] font-semibold border rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 border-slate-300 dark:border-slate-700">Original</button>
+                            </div>
+                        </div>
+
+                        <!-- Print Action Button -->
+                        <button onclick="executePrint()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3.5 rounded-2xl shadow-lg shadow-emerald-600/30 transition flex items-center justify-center gap-2 text-sm">
+                            <i class="fa-solid fa-print text-lg"></i> LANGSUNG PRINT
+                        </button>
+                    </div>
+
+                    <!-- Right Column: Interactive Paper Canvas (8 cols) -->
+                    <div class="lg:col-span-8 canvas-grid-bg p-8 rounded-2xl border border-slate-300 dark:border-slate-800 flex items-center justify-center min-h-[550px] overflow-auto relative shadow-inner">
+                        <div class="absolute top-3 left-3 bg-slate-900/80 text-white text-[10px] px-2.5 py-1 rounded-full backdrop-blur-md z-20 flex items-center gap-1.5">
+                            <i class="fa-solid fa-hand-pointer text-blue-400"></i> Geser berkas di kertas dengan Drag & Drop
+                        </div>
+
+                        <!-- Paper Element (Target Print Area) -->
+                        <div id="print-area" class="bg-white text-slate-900 paper-shadow transition-all duration-200 relative overflow-hidden flex items-center justify-center">
+                            
+                            <!-- Draggable Container for Media -->
+                            <div id="draggable-item" class="absolute cursor-move transition-transform duration-75 select-none" style="left: 0px; top: 0px;">
+                                <img id="studio-img" src="https://placehold.co/600x800/f1f5f9/64748b?text=Pilih+Berkas+Cetak" class="max-w-none pointer-events-none">
+                                <div id="studio-pdf-placeholder" class="hidden p-6 text-center space-y-2 pointer-events-none">
+                                    <i class="fa-solid fa-file-pdf text-5xl text-red-500"></i>
+                                    <p class="font-bold text-sm text-slate-700" id="studio-pdf-title">Berkas PDF</p>
+                                    <p class="text-[10px] text-slate-500">Pratinjau PDF akan dicetak langsung via dialog sistem.</p>
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+        </section>
+
+    </main>
+
+    <!-- MODAL AUTH ADMIN -->
+    <div id="admin-modal" class="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-slate-800 rounded-3xl shadow-2xl max-w-sm w-full p-6 border border-slate-200 dark:border-slate-700 space-y-4 animate-scaleUp">
+            <div class="flex justify-between items-center">
+                <h3 class="font-bold text-base flex items-center gap-2 text-slate-900 dark:text-white">
+                    <i class="fa-solid fa-shield-halved text-blue-500"></i> Akses Panel Admin
+                </h3>
+                <button onclick="closeAdminModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <p class="text-xs text-slate-500 dark:text-slate-400">Masukkan kata sandi administrator untuk melanjutkan.</p>
+            
+            <form onsubmit="handleAdminLogin(event)" class="space-y-4">
+                <div>
+                    <input type="password" id="admin-pass" required placeholder="Sandi ( Default: 123456 )" class="w-full p-3 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-center font-mono text-sm">
+                </div>
+                <div id="login-error" class="hidden text-xs text-red-500 text-center font-semibold">Kata sandi salah! Coba lagi.</div>
+                <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-xl transition text-sm">Masuk</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- TOAST NOTIFICATION -->
+    <div id="toast" class="fixed bottom-5 right-5 z-50 hidden flex items-center gap-3 bg-slate-900 text-white px-4 py-3 rounded-2xl shadow-xl border border-slate-700 text-xs toast-animate">
+        <i id="toast-icon" class="fa-solid fa-circle-check text-emerald-400 text-base"></i>
+        <span id="toast-message">Pesan notifikasi</span>
+    </div>
+
+    <!-- JAVASCRIPT APPLICATION LOGIC -->
+    <script>
+        // Application Global State
+        let appState = {
+            isAdmin: false,
+            queue: [],
+            history: [],
+            studio: {
+                imgSrc: null,
+                isPdf: false,
+                fileName: '',
+                zoom: 100,
+                rotate: 0,
+                fitMode: 'fit',
+                paperW: 210, // mm
+                paperH: 297, // mm
+                posX: 0,     // px drag
+                posY: 0      // px drag
+            }
+        };
+
+        // DOM Loaded Init
+        document.addEventListener('DOMContentLoaded', () => {
+            generateOrderNo();
+            loadStateFromStorage();
+            renderQueue();
+            renderHistory();
+            updatePaperSize();
+            setupDraggableCanvas();
+        });
+
+        // Theme Switcher Logic
+        function toggleTheme() {
+            const html = document.documentElement;
+            const icon = document.getElementById('theme-icon');
+            if (html.classList.contains('dark')) {
+                html.classList.remove('dark');
+                icon.innerHTML = '<i class="fa-solid fa-moon"></i> Malam';
+                localStorage.setItem('theme', 'light');
+            } else {
+                html.classList.add('dark');
+                icon.innerHTML = '<i class="fa-solid fa-sun"></i> Siang';
+                localStorage.setItem('theme', 'dark');
+            }
+        }
+
+        // Auto-Generate Order Number
+        function generateOrderNo() {
+            const now = new Date();
+            const dateStr = now.toISOString().slice(0, 10).replace(/-/g, '');
+            const rand = Math.floor(100 + Math.random() * 900);
+            document.getElementById('cust-order').value = `ORD-${dateStr}-${rand}`;
+        }
+
+        // Toast Notification System
+        function showToast(message, isError = false) {
+            const toast = document.getElementById('toast');
+            const toastMsg = document.getElementById('toast-message');
+            const toastIcon = document.getElementById('toast-icon');
+
+            toastMsg.innerText = message;
+            if (isError) {
+                toastIcon.className = "fa-solid fa-circle-exclamation text-red-400 text-base";
+            } else {
+                toastIcon.className = "fa-solid fa-circle-check text-emerald-400 text-base";
+            }
+
+            toast.classList.remove('hidden');
+            setTimeout(() => {
+                toast.classList.add('hidden');
+            }, 3000);
+        }
+
+        // View Navigation
+        function switchView(view) {
+            const custView = document.getElementById('customer-view');
+            const adminView = document.getElementById('admin-view');
+            const navCust = document.getElementById('nav-btn-customer');
+            const navAdmin = document.getElementById('nav-btn-admin');
+
+            if (view === 'admin') {
+                if (!appState.isAdmin) {
+                    openAdminModal();
+                    return;
+                }
+                custView.classList.add('hidden');
+                adminView.classList.remove('hidden');
+                navAdmin.className = "px-3 py-1.5 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-sm transition font-bold";
+                navCust.className = "px-3 py-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition";
+            } else {
+                custView.classList.remove('hidden');
+                adminView.classList.add('hidden');
+                navCust.className = "px-3 py-1.5 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-sm transition font-bold";
+                navAdmin.className = "px-3 py-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition";
+            }
+        }
+
+        // Admin Auth Logic
+        function openAdminModal() {
+            document.getElementById('admin-modal').classList.remove('hidden');
+            document.getElementById('admin-pass').focus();
+        }
+
+        function closeAdminModal() {
+            document.getElementById('admin-modal').classList.add('hidden');
+            document.getElementById('login-error').classList.add('hidden');
+            document.getElementById('admin-pass').value = '';
+        }
+
+        function handleAdminLogin(e) {
+            e.preventDefault();
+            const pass = document.getElementById('admin-pass').value;
+            if (pass === '123456') {
+                appState.isAdmin = true;
+                closeAdminModal();
+                switchView('admin');
+                showToast("Berhasil masuk sebagai Admin!");
+            } else {
+                document.getElementById('login-error').classList.remove('hidden');
+            }
+        }
+
+        function logoutAdmin() {
+            appState.isAdmin = false;
+            switchView('customer');
+            showToast("Keluar dari Panel Admin.");
+        }
+
+        // File Selection Handlers for Customer Form
+        let currentUploadedFile = null;
+
+        function handleFileSelect(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            currentUploadedFile = file;
+            const previewContainer = document.getElementById('file-preview-container');
+            const placeholder = document.getElementById('upload-placeholder');
+            const imgPreview = document.getElementById('img-preview');
+            const pdfPreview = document.getElementById('pdf-preview');
+
+            placeholder.classList.add('hidden');
+            previewContainer.classList.remove('hidden');
+
+            if (file.type.startsWith('image/')) {
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    imgPreview.src = event.target.result;
+                    imgPreview.classList.remove('hidden');
+                    pdfPreview.classList.add('hidden');
+                };
+                reader.readAsDataURL(file);
+            } else {
+                imgPreview.classList.add('hidden');
+                pdfPreview.classList.remove('hidden');
+                document.getElementById('pdf-name').innerText = file.name;
+            }
+        }
+
+        // Submit Queue Form
+        function handleQueueSubmit(e) {
+            e.preventDefault();
+            const name = document.getElementById('cust-name').value;
+            let orderNo = document.getElementById('cust-order').value;
+            if (!orderNo) orderNo = `ORD-${Date.now()}`;
+
+            if (!currentUploadedFile) {
+                showToast("Harap pilih berkas terlebih dahulu!", true);
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function (event) {
+                const newQueueItem = {
+                    id: Date.now(),
+                    orderNo: orderNo,
+                    name: name,
+                    time: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
+                    fileData: event.target.result,
+                    fileName: currentUploadedFile.name,
+                    isPdf: !currentUploadedFile.type.startsWith('image/')
+                };
+
+                appState.queue.push(newQueueItem);
+                saveStateToStorage();
+                renderQueue();
+
+                // Reset Form
+                document.getElementById('queue-form').reset();
+                document.getElementById('upload-placeholder').classList.remove('hidden');
+                document.getElementById('file-preview-container').classList.add('hidden');
+                currentUploadedFile = null;
+                generateOrderNo();
+
+                showToast("Antrian berhasil dikirim!");
+            };
+
+            reader.readAsDataURL(currentUploadedFile);
+        }
+
+        // Render Active Queue Cards
+        function renderQueue() {
+            const container = document.getElementById('queue-cards-container');
+            const emptyMsg = document.getElementById('empty-queue-msg');
+            const badge = document.getElementById('queue-badge');
+
+            container.innerHTML = '';
+            badge.innerText = appState.queue.length;
+
+            if (appState.queue.length === 0) {
+                emptyMsg.classList.remove('hidden');
+                return;
+            }
+            emptyMsg.classList.add('hidden');
+
+            appState.queue.forEach((item) => {
+                const card = document.createElement('div');
+                card.className = "bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200 dark:border-slate-700/80 shadow-sm flex flex-col justify-between gap-4 hover:border-blue-500/50 transition";
+                
+                let mediaPreview = item.isPdf 
+                    ? `<div class="p-3 bg-red-50 dark:bg-red-950/40 rounded-xl flex items-center gap-2 text-xs text-red-600 dark:text-red-400 font-medium"><i class="fa-solid fa-file-pdf text-lg"></i> <span class="truncate">${item.fileName}</span></div>`
+                    : `<img src="${item.fileData}" class="h-28 w-full object-cover rounded-xl border border-slate-100 dark:border-slate-700">`;
+
+                card.innerHTML = `
+                    <div class="space-y-3">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <span class="text-[10px] font-extrabold uppercase tracking-wider text-blue-600 dark:text-blue-400 font-mono">${item.orderNo}</span>
+                                <h4 class="font-bold text-sm text-slate-900 dark:text-white leading-tight">${item.name}</h4>
+                            </div>
+                            <span class="text-[10px] text-slate-400 font-mono bg-slate-100 dark:bg-slate-700 px-2 py-0.5 rounded-full">${item.time}</span>
+                        </div>
+                        ${mediaPreview}
+                    </div>
+
+                    <div class="grid grid-cols-3 gap-1.5 pt-2 border-t border-slate-100 dark:border-slate-700/60">
+                        <button onclick="openInStudio(${item.id})" class="p-2 bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-300 rounded-xl hover:bg-blue-100 dark:hover:bg-blue-900 font-semibold text-xs flex items-center justify-center gap-1 transition" title="Buka di Studio">
+                            <i class="fa-solid fa-sliders"></i> Studio
+                        </button>
+                        <button onclick="markAsDone(${item.id})" class="p-2 bg-emerald-50 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-300 rounded-xl hover:bg-emerald-100 dark:hover:bg-emerald-900 font-semibold text-xs flex items-center justify-center gap-1 transition" title="Tandai Selesai">
+                            <i class="fa-solid fa-check"></i> Selesai
+                        </button>
+                        <button onclick="deleteQueue(${item.id})" class="p-2 bg-red-50 dark:bg-red-950 text-red-600 dark:text-red-300 rounded-xl hover:bg-red-100 dark:hover:bg-red-900 font-semibold text-xs flex items-center justify-center gap-1 transition" title="Hapus">
+                            <i class="fa-solid fa-trash-can"></i> Hapus
+                        </button>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+            updateStats();
+        }
+
+        function markAsDone(id) {
+            const index = appState.queue.findIndex(item => item.id === id);
+            if (index !== -1) {
+                const item = appState.queue.splice(index, 1)[0];
+                item.completedTime = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+                item.completedDate = new Date().toISOString().slice(0, 10);
+                appState.history.unshift(item);
+                saveStateToStorage();
+                renderQueue();
+                renderHistory();
+                showToast(`Antrian ${item.orderNo} selesai!`);
+            }
+        }
+
+        function deleteQueue(id) {
+            appState.queue = appState.queue.filter(item => item.id !== id);
+            saveStateToStorage();
+            renderQueue();
+            showToast("Antrian dihapus.");
+        }
+
+        function clearAllQueue() {
+            if (confirm("Apakah Anda yakin ingin mengosongkan semua antrian?")) {
+                appState.queue = [];
+                saveStateToStorage();
+                renderQueue();
+                showToast("Semua antrian dibersihkan.");
+            }
+        }
+
+        // Render History Table
+        function renderHistory() {
+            const tbody = document.getElementById('history-table-body');
+            const emptyMsg = document.getElementById('empty-history-msg');
+            const searchQuery = document.getElementById('history-search')?.value.toLowerCase() || '';
+
+            tbody.innerHTML = '';
+
+            const filteredHistory = appState.history.filter(item => 
+                item.name.toLowerCase().includes(searchQuery) || 
+                item.orderNo.toLowerCase().includes(searchQuery)
+            );
+
+            if (filteredHistory.length === 0) {
+                emptyMsg.classList.remove('hidden');
+                return;
+            }
+            emptyMsg.classList.add('hidden');
+
+            filteredHistory.forEach((item) => {
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-slate-50 dark:hover:bg-slate-700/50 transition";
+                tr.innerHTML = `
+                    <td class="p-4 font-mono font-bold text-blue-600 dark:text-blue-400">${item.orderNo}</td>
+                    <td class="p-4 font-semibold">${item.name}</td>
+                    <td class="p-4 text-slate-400">${item.completedTime || item.time}</td>
+                    <td class="p-4">
+                        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 bg-slate-100 dark:bg-slate-700 rounded-lg text-slate-600 dark:text-slate-300 max-w-[140px] truncate">
+                            <i class="fa-solid ${item.isPdf ? 'fa-file-pdf text-red-500' : 'fa-image text-blue-500'}"></i> ${item.fileName}
+                        </span>
+                    </td>
+                    <td class="p-4 text-center">
+                        <button onclick="deleteHistory(${item.id})" title="Hapus Riwayat" class="p-1.5 text-slate-400 hover:text-red-500 transition">
+                            <i class="fa-solid fa-trash-can"></i>
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+            updateStats();
+        }
+
+        function deleteHistory(id) {
+            appState.history = appState.history.filter(item => item.id !== id);
+            saveStateToStorage();
+            renderHistory();
+        }
+
+        function clearHistory() {
+            if (confirm("Hapus seluruh riwayat antrian?")) {
+                appState.history = [];
+                saveStateToStorage();
+                renderHistory();
+                showToast("Riwayat antrian dibersihkan.");
+            }
+        }
+
+        function updateStats() {
+            const todayStr = new Date().toISOString().slice(0, 10);
+            const todayCompleted = appState.history.filter(i => i.completedDate === todayStr).length;
+
+            document.getElementById('stat-total-completed').innerText = appState.history.length;
+            document.getElementById('stat-today-completed').innerText = todayCompleted;
+            document.getElementById('stat-pending-queue').innerText = appState.queue.length;
+        }
+
+        // Admin Tab Navigation
+        function switchAdminTab(tab) {
+            document.getElementById('admin-tab-queue').classList.add('hidden');
+            document.getElementById('admin-tab-history').classList.add('hidden');
+            document.getElementById('admin-tab-studio').classList.add('hidden');
+
+            document.querySelectorAll('.admin-tab-btn').forEach(btn => {
+                btn.className = "admin-tab-btn px-4 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 flex items-center gap-2 transition";
+            });
+
+            const activeBtn = document.getElementById(`tab-btn-${tab}`);
+            activeBtn.className = "admin-tab-btn px-4 py-2 rounded-xl text-xs font-bold bg-blue-600 text-white flex items-center gap-2 transition shadow-md shadow-blue-500/20";
+
+            document.getElementById(`admin-tab-${tab}`).classList.remove('hidden');
+        }
+
+        // Open Queue Document Directly into Studio
+        function openInStudio(id) {
+            const item = appState.queue.find(q => q.id === id);
+            if (!item) return;
+
+            appState.studio.imgSrc = item.fileData;
+            appState.studio.isPdf = item.isPdf;
+            appState.studio.fileName = item.fileName;
+
+            const studioImg = document.getElementById('studio-img');
+            const pdfPlaceholder = document.getElementById('studio-pdf-placeholder');
+            document.getElementById('active-file-indicator').innerText = item.fileName;
+
+            if (item.isPdf) {
+                studioImg.classList.add('hidden');
+                pdfPlaceholder.classList.remove('hidden');
+                document.getElementById('studio-pdf-title').innerText = item.fileName;
+            } else {
+                pdfPlaceholder.classList.add('hidden');
+                studioImg.classList.remove('hidden');
+                studioImg.src = item.fileData;
+            }
+
+            centerImagePosition();
+            switchAdminTab('studio');
+            showToast("Berkas dimuat di Studio Print");
+        }
+
+        function loadStudioImageFromFile(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function (event) {
+                appState.studio.imgSrc = event.target.result;
+                appState.studio.isPdf = !file.type.startsWith('image/');
+                appState.studio.fileName = file.name;
+
+                const studioImg = document.getElementById('studio-img');
+                const pdfPlaceholder = document.getElementById('studio-pdf-placeholder');
+                document.getElementById('active-file-indicator').innerText = file.name;
+
+                if (appState.studio.isPdf) {
+                    studioImg.classList.add('hidden');
+                    pdfPlaceholder.classList.remove('hidden');
+                    document.getElementById('studio-pdf-title').innerText = file.name;
+                } else {
+                    pdfPlaceholder.classList.add('hidden');
+                    studioImg.classList.remove('hidden');
+                    studioImg.src = event.target.result;
+                }
+
+                centerImagePosition();
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // Studio Paper Presets
+        function setPaperPreset(preset) {
+            const wInput = document.getElementById('paper-w');
+            const hInput = document.getElementById('paper-h');
+
+            switch (preset) {
+                case 'a4': wInput.value = 210; hInput.value = 297; break;
+                case 'a5': wInput.value = 148; hInput.value = 210; break;
+                case '4r': wInput.value = 102; hInput.value = 152; break;
+                case '3r': wInput.value = 89; hInput.value = 127; break;
+                case 'struk80': wInput.value = 80; hInput.value = 200; break;
+                case 'struk58': wInput.value = 58; hInput.value = 150; break;
+            }
+            updatePaperSize();
+        }
+
+        function updatePaperSize() {
+            const w = parseFloat(document.getElementById('paper-w').value) || 210;
+            const h = parseFloat(document.getElementById('paper-h').value) || 297;
+            appState.studio.paperW = w;
+            appState.studio.paperH = h;
+
+            const printArea = document.getElementById('print-area');
+            const ratio = w / h;
+            let displayHeight = 460;
+            let displayWidth = displayHeight * ratio;
+
+            if (displayWidth > 500) {
+                displayWidth = 500;
+                displayHeight = displayWidth / ratio;
+            }
+
+            printArea.style.width = `${displayWidth}px`;
+            printArea.style.height = `${displayHeight}px`;
+        }
+
+        // Canvas Transforms & Drag Logic
+        function handleZoomSlider(val) {
+            appState.studio.zoom = parseInt(val);
+            document.getElementById('zoom-value-text').innerText = `${val}%`;
+            applyTransform();
+        }
+
+        function rotateStudioImage() {
+            appState.studio.rotate = (appState.studio.rotate + 90) % 360;
+            applyTransform();
+        }
+
+        function setImageFit(mode) {
+            appState.studio.fitMode = mode;
+            const studioImg = document.getElementById('studio-img');
+
+            if (mode === 'fit') {
+                studioImg.style.width = '100%';
+                studioImg.style.height = 'auto';
+            } else if (mode === 'stretch') {
+                studioImg.style.width = '100%';
+                studioImg.style.height = '100%';
+            } else if (mode === 'original') {
+                studioImg.style.width = 'auto';
+                studioImg.style.height = 'auto';
+            }
+            centerImagePosition();
+        }
+
+        function centerImagePosition() {
+            appState.studio.posX = 0;
+            appState.studio.posY = 0;
+            appState.studio.zoom = 100;
+            appState.studio.rotate = 0;
+            document.getElementById('zoom-slider').value = 100;
+            document.getElementById('zoom-value-text').innerText = "100%";
+            applyTransform();
+        }
+
+        function applyTransform() {
+            const dragItem = document.getElementById('draggable-item');
+            const scale = appState.studio.zoom / 100;
+            dragItem.style.transform = `translate(${appState.studio.posX}px, ${appState.studio.posY}px) scale(${scale}) rotate(${appState.studio.rotate}deg)`;
+        }
+
+        // Interactive Drag & Drop Position inside Paper Canvas
+        function setupDraggableCanvas() {
+            const dragItem = document.getElementById('draggable-item');
+            const printArea = document.getElementById('print-area');
+
+            let isDragging = false;
+            let startX, startY;
+
+            const onStart = (e) => {
+                isDragging = true;
+                dragItem.classList.add('draggable-active');
+                const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+                const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+                startX = clientX - appState.studio.posX;
+                startY = clientY - appState.studio.posY;
+            };
+
+            const onMove = (e) => {
+                if (!isDragging) return;
+                const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+                const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+                appState.studio.posX = clientX - startX;
+                appState.studio.posY = clientY - startY;
+                applyTransform();
+            };
+
+            const onEnd = () => {
+                isDragging = false;
+                dragItem.classList.remove('draggable-active');
+            };
+
+            dragItem.addEventListener('mousedown', onStart);
+            window.addEventListener('mousemove', onMove);
+            window.addEventListener('mouseup', onEnd);
+
+            dragItem.addEventListener('touchstart', onStart, { passive: true });
+            window.addEventListener('touchmove', onMove, { passive: true });
+            window.addEventListener('touchend', onEnd);
+        }
+
+        // Execute Print Action
+        function executePrint() {
+            if (!appState.studio.imgSrc) {
+                showToast("Pilih berkas terlebih dahulu untuk dicetak!", true);
+                return;
+            }
+
+            // Dynamic CSS Print Injection
+            let printStyle = document.getElementById('dynamic-print-style');
+            if (!printStyle) {
+                printStyle = document.createElement('style');
+                printStyle.id = 'dynamic-print-style';
+                document.head.appendChild(printStyle);
+            }
+
+            printStyle.innerHTML = `
+                @media print {
+                    @page {
+                        size: ${appState.studio.paperW}mm ${appState.studio.paperH}mm;
+                        margin: 0;
+                    }
+                    #print-area {
+                        width: ${appState.studio.paperW}mm !important;
+                        height: ${appState.studio.paperH}mm !important;
+                    }
+                }
+            `;
+
+            window.print();
+        }
+
+        // Local Storage Utilities
+        function saveStateToStorage() {
+            localStorage.setItem('studio_print_queue', JSON.stringify(appState.queue));
+            localStorage.setItem('studio_print_history', JSON.stringify(appState.history));
+        }
+
+        function loadStateFromStorage() {
+            const savedQueue = localStorage.getItem('studio_print_queue');
+            const savedHistory = localStorage.getItem('studio_print_history');
+            const savedTheme = localStorage.getItem('theme');
+
+            if (savedQueue) appState.queue = JSON.parse(savedQueue);
+            if (savedHistory) appState.history = JSON.parse(savedHistory);
+
+            if (savedTheme === 'light') {
+                document.documentElement.classList.remove('dark');
+                document.getElementById('theme-icon').innerHTML = '<i class="fa-solid fa-moon"></i> Malam';
+            }
+        }
+    </script>
+</body>
+</html>
